@@ -1,0 +1,66 @@
+from flask import Flask, request, jsonify
+from flask_restful import Api, Resource
+from flask_sqlalchemy import SQLAlchemy
+from marshmallow import Schema, fields
+
+app = Flask(__name__)
+api = Api(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+db = SQLAlchemy(app)
+
+# Define the User model
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+
+# Define the User schema for serialization
+class UserSchema(Schema):
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True)
+    email = fields.Email(required=True)
+
+user_schema = UserSchema()
+users_schema = UserSchema(many=True)
+
+# User Resource
+class UserResource(Resource):
+    def get(self, user_id):
+        user = User.query.get_or_404(user_id)
+        return user_schema.dump(user)
+
+    def put(self, user_id):
+        user = User.query.get_or_404(user_id)
+        user_data = request.get_json()
+        user.name = user_data['name']
+        user.email = user_data['email']
+        db.session.commit()
+        return user_schema.dump(user)
+
+    def delete(self, user_id):
+        user = User.query.get_or_404(user_id)
+        db.session.delete(user)
+        db.session.commit()
+        return '', 204
+
+# Users Resource
+class UsersResource(Resource):
+    def get(self):
+        users = User.query.all()
+        return users_schema.dump(users)
+
+    def post(self):
+        user_data = request.get_json()
+        new_user = User(name=user_data['name'], email=user_data['email'])
+        db.session.add(new_user)
+        db.session.commit()
+        return user_schema.dump(new_user), 201
+
+# Add resources to API
+api.add_resource(UserResource, '/users/<int:user_id>')
+api.add_resource(UsersResource, '/users')
+
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True)

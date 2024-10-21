@@ -1,0 +1,45 @@
+from crewai import Crew, Task, Agent
+from crewai_tools import SerperDevTool
+import os
+from transformers import pipeline
+from langchain_community.llms import HuggingFacePipeline
+
+# ... existing code ...
+
+# Create a Hugging Face pipeline for Llama 3
+llama_pipeline = pipeline(
+    "text-generation",
+    model="nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
+    device_map="auto"  # This will use GPU if available
+)
+
+# Create a LangChain compatible LLM from the Hugging Face pipeline
+llama_llm = HuggingFacePipeline(pipeline=llama_pipeline)
+
+# Create a CrewAI agent using the Llama 3 LLM
+researcher = Agent(
+    role='Researcher',
+    goal='Conduct in-depth research on given topics',
+    backstory='You are an AI research assistant with expertise in various fields.',
+    verbose=True,
+    allow_delegation=False,
+    llm=llama_llm
+)
+
+# Create a task for the agent
+research_task = Task(
+    description='Research the differences between CrewAI and LangChain',
+    agent=researcher
+)
+
+# Create a Crew with the agent and task
+crew = Crew(
+    agents=[researcher],
+    tasks=[research_task],
+    verbose=2
+)
+
+# Run the crew
+result = crew.kickoff()
+
+print(result)
